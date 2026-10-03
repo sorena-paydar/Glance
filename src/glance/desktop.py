@@ -163,10 +163,8 @@ def _install_macos(exe: Path) -> list[Path]:
     changed |= _write_if_changed(
         contents / "MacOS" / APP_NAME, macos_launcher(exe, log_path()).encode(), 0o755
     )
-    icns = contents / "Resources" / f"{APP_NAME}.icns"
-    if _icon_available() and not icns.exists():
-        _write_icns(icns)
-        changed = True
+    if _icon_available():
+        changed |= _write_if_changed(contents / "Resources" / f"{APP_NAME}.icns", _icns_bytes())
     if changed:
         # A stable ad-hoc signature lets macOS remember the permissions granted to
         # Glance; it only changes when the bundle's contents do.
@@ -184,15 +182,16 @@ def _install_macos(exe: Path) -> list[Path]:
     return [app, link]
 
 
-def _write_icns(target: Path) -> None:
+def _icns_bytes() -> bytes:
     with tempfile.TemporaryDirectory() as tmp:
         iconset = Path(tmp) / f"{APP_NAME}.iconset"
         iconset.mkdir()
         for size in (16, 32, 128, 256, 512):
             render_icon(size).save(iconset / f"icon_{size}x{size}.png")
             render_icon(size * 2).save(iconset / f"icon_{size}x{size}@2x.png")
-        target.parent.mkdir(parents=True, exist_ok=True)
+        target = Path(tmp) / f"{APP_NAME}.icns"
         subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(target)], check=True)
+        return target.read_bytes()
 
 
 # -- Windows ---------------------------------------------------------------------------
