@@ -12,6 +12,7 @@ from glance.config import Settings
 from glance.displays import Monitor, get_monitors, layout_key, monitor_at
 from glance.engine import SwitchEngine
 from glance.gaze import GazeTracker
+from glance.motion import STEP_SECONDS, glide_path
 from glance.pointer import Pointer
 
 TICK_SECONDS = 1 / 30
@@ -140,5 +141,6 @@ class GlanceApp:
         if self.settings.remember_position and index in self._remembered:
             dest = self._remembered[index]
         dest = monitor.clamp(*dest)
-        if self.pointer.warp(*dest):
+        path = glide_path(self.pointer.poll(), dest, self.monitors, self.settings.glide_ms / 1000)
+        if self.pointer.glide(path, STEP_SECONDS):
             self.log(f"-> {monitor.label()}")

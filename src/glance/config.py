@@ -53,6 +53,8 @@ class Settings:
     respect_manual_choice: bool = True
     # Treat typing like pointer activity: no jumps while you are typing.
     pause_while_typing: bool = True
+    # Duration of the smooth cursor glide; 0 jumps instantly.
+    glide_ms: int = 200
     # Return the cursor to where it last was on a monitor instead of its centre.
     remember_position: bool = True
     # Global hotkey that pauses/resumes Glance (pynput syntax).

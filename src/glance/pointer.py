@@ -13,6 +13,8 @@ from __future__ import annotations
 import math
 import threading
 import time
+from collections import deque
+from collections.abc import Sequence
 
 from pynput import mouse
 
@@ -27,7 +29,8 @@ class Pointer:
         self._mouse = mouse.Controller()
         self._lock = threading.Lock()
         self._buttons_down = 0
-        self._synthetic: tuple[float, float, float] | None = None  # x, y, deadline
+        # Recent warp targets (x, y, deadline): a glide makes many in quick succession.
+        self._synthetic: deque[tuple[float, float, float]] = deque(maxlen=64)
         self.last_manual = -math.inf
         self._last_seen = self.position()
         self._listener = mouse.Listener(
@@ -70,19 +73,27 @@ class Pointer:
                 self.last_manual = now
                 self._last_seen = pos
                 return False
-            self._synthetic = (x, y, now + SYNTHETIC_WINDOW)
+            self._synthetic.append((x, y, now + SYNTHETIC_WINDOW))
             self._mouse.position = (x, y)
             self._last_seen = (x, y)
             return True
 
+    def glide(self, path: Sequence[tuple[float, float]], step_seconds: float) -> bool:
+        """Move along ``path`` one point per step. Stops as soon as the user moves.
+
+        Returns True if the whole path was travelled.
+        """
+        for i, (x, y) in enumerate(path):
+            if i:
+                time.sleep(step_seconds)
+            if not self.warp(x, y):
+                return False
+        return True
+
     def _is_synthetic(self, pos: tuple[float, float], now: float) -> bool:
-        if self._synthetic is None:
-            return False
-        sx, sy, deadline = self._synthetic
-        if now > deadline:
-            self._synthetic = None
-            return False
-        return _distance(pos, (sx, sy)) <= SYNTHETIC_TOLERANCE
+        while self._synthetic and self._synthetic[0][2] < now:
+            self._synthetic.popleft()
+        return any(_distance(pos, (sx, sy)) <= SYNTHETIC_TOLERANCE for sx, sy, _ in self._synthetic)
 
     def _mark_manual(self) -> None:
         self.last_manual = time.monotonic()

@@ -17,6 +17,7 @@ class FakePointer:
         self.last_manual = -math.inf
         self.busy = False
         self.warps = []
+        self.glides = []
 
     def poll(self):
         return self.pos
@@ -25,6 +26,10 @@ class FakePointer:
         self.warps.append((x, y))
         self.pos = (x, y)
         return True
+
+    def glide(self, path, step_seconds):
+        self.glides.append(path)
+        return self.warp(*path[-1])
 
 
 class FakeTracker:
@@ -46,7 +51,9 @@ def make_app(pos=(500, 400)):
         layout_key(MONITORS),
         k=1,
     )
-    settings = Settings(smoothing=1.0, dwell_ms=200, cooldown_ms=0, manual_grace_ms=500)
+    settings = Settings(
+        smoothing=1.0, dwell_ms=200, cooldown_ms=0, manual_grace_ms=500, glide_ms=100
+    )
     pointer, tracker = FakePointer(pos), FakeTracker()
     app = GlanceApp(settings, model, MONITORS, log=lambda _: None, pointer=pointer, tracker=tracker)
     return app, pointer, tracker
@@ -99,3 +106,12 @@ def test_paused_never_jumps():
     app.toggle_pause()
     run(app, tracker, 1, 0.0, 2.0)
     assert pointer.warps == []
+
+
+def test_glides_smoothly_across_monitors():
+    app, pointer, tracker = make_app()
+    run(app, tracker, 1, 0.0, 1.0)
+    assert len(pointer.glides) == 1
+    path = pointer.glides[0]
+    assert len(path) > 5
+    assert path[-1] == (1500.0, 400.0)
