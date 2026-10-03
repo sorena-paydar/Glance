@@ -3,7 +3,8 @@
 #
 #   curl -fsSL https://sorena-paydar.github.io/Glance/install.sh | sh
 #
-# Installs uv if needed, installs the `glance` command, then starts guided setup.
+# Installs uv if needed, installs the `glance` command, adds Glance to the desktop,
+# then starts guided setup.
 # Set GLANCE_NO_SETUP=1 to skip setup.
 set -eu
 
@@ -32,9 +33,17 @@ case ":$PATH:" in
   *) PATH="$BIN:$PATH"; export PATH ;;
 esac
 
-say "==> Glance installed. Run 'glance' any time to start it."
+glance desktop || say "(Could not add Glance to the desktop; run 'glance desktop' later.)"
+say "==> Glance installed. Open it from your Desktop, or run 'glance'."
 
-if [ -z "${GLANCE_NO_SETUP:-}" ] && [ -t 1 ] && (: </dev/tty) 2>/dev/null; then
+if [ -n "${GLANCE_NO_SETUP:-}" ]; then
+  exit 0
+fi
+if [ "$(uname -s)" = "Darwin" ] && [ -d "$HOME/Applications/Glance.app" ]; then
+  # Setup continues in the app, so macOS grants permissions to Glance itself.
+  say "==> Opening Glance"
+  open "$HOME/Applications/Glance.app"
+elif [ -t 1 ] && (: </dev/tty) 2>/dev/null; then
   say "==> Starting setup"
   exec glance </dev/tty
 fi
