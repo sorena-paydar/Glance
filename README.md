@@ -102,8 +102,9 @@ Double-click **Glance** on your Desktop (or in Launchpad / the Start menu), or r
 glance
 ```
 
-Pause and resume with **Ctrl+Alt+G**, or from the menu bar icon. If you rearrange
-your monitors, Glance notices and recalibrates.
+Pause and resume with **Ctrl+Alt+G**, or from the menu bar icon. To calibrate
+again, choose **Recalibrate…** in the menu bar icon (or run `glance calibrate`). If
+you rearrange your monitors, Glance notices and recalibrates.
 
 **Other commands**
 
