@@ -64,19 +64,25 @@ def layout_key(monitors: Sequence[Monitor]) -> str:
     return "|".join(m.key for m in monitors)
 
 
-def get_monitors() -> list[Monitor]:
-    """Current monitors, ordered left-to-right then top-to-bottom."""
-    monitors = _macos_monitors() if sys.platform == "darwin" else _screeninfo_monitors()
+def get_monitors(with_names: bool = True) -> list[Monitor]:
+    """Current monitors, ordered left-to-right then top-to-bottom.
+
+    Pass ``with_names=False`` off the main thread: on macOS, names come from AppKit.
+    """
+    if sys.platform == "darwin":
+        monitors = _macos_monitors(with_names)
+    else:
+        monitors = _screeninfo_monitors()
     return sorted(monitors, key=lambda m: (m.x, m.y))
 
 
-def _macos_monitors() -> list[Monitor]:
+def _macos_monitors(with_names: bool) -> list[Monitor]:
     import Quartz
 
     err, ids, count = Quartz.CGGetActiveDisplayList(16, None, None)
     if err:
         raise RuntimeError(f"CGGetActiveDisplayList failed with error {err}")
-    names = _macos_display_names()
+    names = _macos_display_names() if with_names else {}
     main = Quartz.CGMainDisplayID()
     monitors = []
     for display_id in ids[:count]:
