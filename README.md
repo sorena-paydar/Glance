@@ -37,36 +37,44 @@ point.
 
 ## Install
 
-Requires Python 3.10 to 3.12 and [uv](https://docs.astral.sh/uv/).
+**macOS / Linux**
 
 ```sh
-git clone https://github.com/sorena-paydar/Glance.git
-cd Glance
-uv sync --extra tray      # drop --extra tray if you don't want the menu bar icon
+curl -fsSL https://sorena-paydar.github.io/Glance/install.sh | sh
 ```
 
-### macOS permissions
+**Windows** (PowerShell)
 
-Grant these to the app that runs Glance (your terminal, e.g. Terminal or iTerm),
-then restart it:
+```powershell
+irm https://sorena-paydar.github.io/Glance/install.ps1 | iex
+```
 
-- **Camera**: System Settings > Privacy & Security > Camera
-- **Accessibility**: System Settings > Privacy & Security > Accessibility (to move the cursor)
-- **Input Monitoring**: System Settings > Privacy & Security > Input Monitoring
-  (to notice trackpad, mouse and keyboard use)
+The installer sets up [uv](https://docs.astral.sh/uv/) if you don't have it (uv
+fetches Python by itself), installs the `glance` command and starts guided setup.
 
-## Usage
+## First run
+
+Setup takes about a minute and walks you through:
+
+1. **Monitors**: Glance lists the monitors it found (you need at least two).
+2. **Permissions** (macOS): it opens the right System Settings pages. Switch on your
+   terminal app (Terminal, iTerm, Warp...) for **Accessibility** (to move the cursor)
+   and **Input Monitoring** (to notice your trackpad, mouse and keyboard). macOS then
+   asks you to reopen the terminal; run `glance` again to continue.
+3. **Camera**: allow camera access when macOS asks.
+4. **Calibration**: a red dot appears on each monitor in turn; look at it until it
+   moves.
+
+Glance then starts in your menu bar.
+
+## Everyday use
 
 ```sh
-uv run glance monitors     # list detected monitors
-uv run glance calibrate    # follow the red dot across your monitors (~30 s)
-uv run glance preview      # optional: camera view with live predictions
-uv run glance run          # start; add --tray for a menu bar icon
+glance
 ```
 
-Pause and resume at any time with **Ctrl+Alt+G**. Recalibrate whenever you move
-your monitors, your webcam or your seat noticeably. Glance stops by itself if the
-monitor arrangement changes.
+That's it. Pause and resume with **Ctrl+Alt+G**, or from the menu bar icon. If you
+rearrange your monitors, Glance notices and recalibrates.
 
 **Tips for good accuracy**
 
@@ -74,6 +82,18 @@ monitor arrangement changes.
 - Turning your head slightly towards a monitor helps much more than moving only
   your eyes, especially with monitors that are close together.
 - Even, frontal lighting works best. Avoid a bright window behind you.
+
+**Other commands**
+
+```sh
+glance setup       # run guided setup again
+glance calibrate   # recalibrate only
+glance preview     # camera view with live predictions, for troubleshooting
+glance monitors    # list detected monitors
+glance config      # show settings and where they are stored
+```
+
+**Uninstall**: `uv tool uninstall glance`
 
 ## Settings
 
@@ -97,8 +117,11 @@ the JSON to tune behaviour:
 ## Development
 
 ```sh
-uv sync
+git clone https://github.com/sorena-paydar/Glance.git && cd Glance
+uv sync --extra tray
+uv run glance            # run from source
 uv run pytest
+node --test tests/js/glance-core.test.mjs
 uvx ruff check src tests && uvx ruff format --check src tests
 ```
 
@@ -110,7 +133,8 @@ uvx ruff check src tests && uvx ruff format --check src tests
 | `engine.py` | When to jump (pure logic, fully unit-tested) |
 | `pointer.py` | Moving the cursor and detecting manual input |
 | `displays.py` | Monitor layout |
-| `app.py`, `cli.py`, `tray.py` | Runtime loop and user interfaces |
+| `app.py`, `cli.py`, `setup.py`, `tray.py` | Runtime loop, guided setup and user interfaces |
+| `docs/` | Website, live demo (`glance-core.js`) and installers |
 
 ## License
 
