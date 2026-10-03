@@ -1,0 +1,229 @@
+"""Command-line entry point."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+from dataclasses import asdict
+
+from glance import __version__
+from glance.config import Settings, calibration_path, settings_path
+from glance.displays import get_monitors, monitor_at
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="glance", description="Move your cursor to the monitor you are looking at."
+    )
+    parser.add_argument("--version", action="version", version=f"glance {__version__}")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    sub.add_parser("monitors", help="list detected monitors")
+    calibrate = sub.add_parser("calibrate", help="calibrate gaze for your monitors")
+    calibrate.add_argument("--camera", type=int, help="camera index (default from settings)")
+    run = sub.add_parser("run", help="start moving the cursor with your gaze")
+    run.add_argument("--camera", type=int, help="camera index (default from settings)")
+    run.add_argument("--tray", action="store_true", help="show a menu bar / tray icon")
+    preview = sub.add_parser("preview", help="show the camera with live predictions")
+    preview.add_argument("--camera", type=int, help="camera index (default from settings)")
+    config = sub.add_parser("config", help="show settings and where they are stored")
+    config.add_argument("--reset", action="store_true", help="restore default settings")
+
+    args = parser.parse_args(argv)
+    settings = Settings.load()
+    if getattr(args, "camera", None) is not None:
+        settings.camera_index = args.camera
+
+    commands = {
+        "monitors": cmd_monitors,
+        "calibrate": cmd_calibrate,
+        "run": cmd_run,
+        "preview": cmd_preview,
+        "config": cmd_config,
+    }
+    try:
+        return commands[args.command](args, settings)
+    except KeyboardInterrupt:
+        return 130
+
+
+def cmd_monitors(args, settings: Settings) -> int:
+    from pynput.mouse import Controller
+
+    monitors = get_monitors()
+    cursor = monitor_at(monitors, *Controller().position)
+    for i, m in enumerate(monitors):
+        marker = "  <- cursor" if i == cursor else ""
+        print(f"[{i}] {m.label()} at ({m.x}, {m.y}){marker}")
+    return 0
+
+
+def cmd_config(args, settings: Settings) -> int:
+    if args.reset or not settings_path().exists():
+        settings = Settings() if args.reset else settings
+        settings.save()
+    print(f"Settings:    {settings_path()}")
+    print(f"Calibration: {calibration_path()}")
+    print(json.dumps(asdict(settings), indent=2))
+    return 0
+
+
+def cmd_calibrate(args, settings: Settings) -> int:
+    from glance.calibration import CalibrationError, run_calibration
+    from glance.gaze import CameraError, GazeTracker
+    from glance.overlay import create_overlay
+
+    monitors = get_monitors()
+    print(f"Found {len(monitors)} monitor(s):")
+    for i, m in enumerate(monitors):
+        print(f"  [{i}] {m.label()}")
+    print("\nSit as you normally do. Follow the red dot with your eyes.\n")
+
+    tracker = GazeTracker(settings.camera_index)
+    try:
+        tracker.start()
+    except CameraError as exc:
+        return _fail(str(exc))
+    try:
+        if not _wait_for_face(tracker):
+            return _fail("no face detected; check the camera and lighting")
+        report = run_calibration(tracker, monitors, create_overlay())
+    except CalibrationError as exc:
+        return _fail(str(exc))
+    finally:
+        tracker.stop()
+
+    report.model.save(calibration_path())
+    print("\nCalibration saved. Estimated accuracy:")
+    rows = zip(monitors, report.accuracy_per_monitor, report.samples_per_monitor, strict=True)
+    for m, acc, count in rows:
+        print(f"  {m.label():50s} {acc:6.0%}  ({count} samples)")
+    if min(report.accuracy_per_monitor) < 0.8:
+        print(
+            "\nSome monitors are hard to tell apart. Turning your head slightly towards "
+            "each monitor during calibration and use helps a lot."
+        )
+    print("\nStart Glance with: glance run")
+    return 0
+
+
+def cmd_run(args, settings: Settings) -> int:
+    from glance.app import GlanceApp, LayoutChangedError
+    from glance.gaze import CameraError
+    from glance.permissions import MACOS_PERMISSION_HELP, accessibility_trusted
+
+    model = _load_model()
+    if model is None:
+        return 1
+    if accessibility_trusted() is False:
+        print(MACOS_PERMISSION_HELP, file=sys.stderr)
+        return _fail("Accessibility permission is required to move the cursor")
+
+    try:
+        app = GlanceApp(settings, model, get_monitors())
+        app.start()
+    except (LayoutChangedError, CameraError) as exc:
+        return _fail(str(exc))
+
+    print(f"Glance is running. Pause/resume: {settings.hotkey}. Quit: Ctrl+C.")
+    try:
+        if args.tray:
+            from glance.tray import run_with_tray
+
+            run_with_tray(app)
+        else:
+            app.run()
+    finally:
+        app.stop()
+    return 0
+
+
+def cmd_preview(args, settings: Settings) -> int:
+    import cv2
+
+    from glance.gaze import CameraError, GazeTracker
+
+    monitors = get_monitors()
+    model = _load_model(required=False)
+    tracker = GazeTracker(settings.camera_index, keep_frames=True)
+    try:
+        tracker.start()
+    except CameraError as exc:
+        return _fail(str(exc))
+    print("Press q in the preview window to quit.")
+    try:
+        while True:
+            sample = tracker.latest()
+            if sample is not None and sample.frame is not None:
+                frame = cv2.flip(sample.frame, 1)
+                for i, line in enumerate(_describe(sample, model, monitors)):
+                    cv2.putText(
+                        frame,
+                        line,
+                        (12, 28 + 26 * i),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.65,
+                        (80, 255, 80),
+                        2,
+                        cv2.LINE_AA,
+                    )
+                cv2.imshow("Glance preview", frame)
+            if cv2.waitKey(15) & 0xFF in (ord("q"), 27):
+                break
+    finally:
+        tracker.stop()
+        cv2.destroyAllWindows()
+    return 0
+
+
+def _describe(sample, model, monitors) -> list[str]:
+    if sample.features is None:
+        return ["No face detected"]
+    yaw, pitch = sample.features[0], sample.features[1]
+    lines = [f"Head yaw {yaw:+.0f} deg, pitch {pitch:+.0f} deg"]
+    if model is None:
+        return [*lines, "Not calibrated: run `glance calibrate`"]
+    probs = model.predict_proba(sample.features)
+    if probs is None:
+        return [*lines, "Looking away from all monitors"]
+    for i, (m, p) in enumerate(zip(monitors, probs, strict=True)):
+        marker = ">" if i == int(probs.argmax()) else " "
+        lines.append(f"{marker} {m.name or f'Monitor {i}'}: {p:.0%}")
+    return lines
+
+
+def _wait_for_face(tracker, timeout: float = 8.0) -> bool:
+    print("Looking for your face...")
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        sample = tracker.latest()
+        if sample is not None and sample.features is not None:
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def _load_model(required: bool = True):
+    from glance.classifier import GazeModel
+
+    path = calibration_path()
+    if not path.exists():
+        if required:
+            _fail("not calibrated yet; run `glance calibrate` first")
+        return None
+    try:
+        return GazeModel.load(path)
+    except (ValueError, KeyError) as exc:
+        _fail(f"cannot read calibration ({exc}); run `glance calibrate` again")
+        return None
+
+
+def _fail(message: str) -> int:
+    print(f"glance: {message}", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
