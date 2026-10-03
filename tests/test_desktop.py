@@ -24,3 +24,14 @@ def test_linux_desktop_entry():
     assert entry.startswith("[Desktop Entry]")
     assert 'Exec="/home/u/.local/bin/glance"' in entry
     assert "Terminal=true" in entry
+
+
+def test_icons_render_from_bundled_assets():
+    from glance.desktop import render_icon
+    from glance.tray import _icon_image
+
+    icon = render_icon(64)
+    assert icon.size == (64, 64) and icon.mode == "RGBA"
+    tray = _icon_image((65, 87, 234))
+    assert tray.size == (64, 64)
+    assert tray.getbbox() is not None  # not empty

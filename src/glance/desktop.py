@@ -23,7 +23,7 @@ from glance.config import config_dir, log_path
 BUNDLE_ID = "io.github.sorena-paydar.glance"
 APP_NAME = "Glance"
 DESCRIPTION = "Move your cursor to the monitor you are looking at"
-ICON_BLUE = (47, 111, 237, 255)
+ASSETS = Path(__file__).parent / "assets"
 
 
 def glance_executable() -> Path:
@@ -93,20 +93,11 @@ def _installed_paths() -> list[Path]:
 
 
 def render_icon(size: int):
-    """The Glance icon (blue rounded square with an eye) as a PIL image."""
-    from PIL import Image, ImageDraw
+    """The Glance app icon at ``size`` pixels, as a PIL image."""
+    from PIL import Image
 
-    scale = 4  # draw large and downsample for smooth edges
-    s = size * scale
-    image = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(image)
-    margin = s * 0.06
-    draw.rounded_rectangle((margin, margin, s - margin, s - margin), radius=s * 0.2, fill=ICON_BLUE)
-    w = max(1, round(s * 0.06))
-    draw.ellipse((s * 0.17, s * 0.3, s * 0.83, s * 0.7), outline="white", width=w)
-    r = s * 0.12
-    draw.ellipse((s / 2 - r, s / 2 - r, s / 2 + r, s / 2 + r), fill="white")
-    return image.resize((size, size), Image.LANCZOS)
+    with Image.open(ASSETS / "icon.png") as icon:
+        return icon.convert("RGBA").resize((size, size), Image.LANCZOS)
 
 
 def _icon_available() -> bool:

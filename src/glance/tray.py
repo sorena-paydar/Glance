@@ -7,21 +7,27 @@ from __future__ import annotations
 
 import sys
 import threading
+from pathlib import Path
 
 from glance.app import GlanceApp
 
-ACTIVE = (64, 156, 255, 255)
-PAUSED = (150, 150, 150, 255)
+ACTIVE = (65, 87, 234)  # logo blue
+PAUSED = (150, 150, 150)
+MARK = Path(__file__).parent / "assets" / "mark.png"
 
 
-def _icon_image(color: tuple[int, int, int, int]):
-    from PIL import Image, ImageDraw
+def _icon_image(color: tuple[int, int, int]):
+    """The Glance mark in ``color``, centred on a square transparent canvas."""
+    from PIL import Image
 
+    with Image.open(MARK) as mark:
+        alpha = mark.convert("RGBA").getchannel("A")
     size = 64
+    alpha.thumbnail((size, size), Image.LANCZOS)
+    tinted = Image.new("RGBA", alpha.size, (*color, 255))
+    tinted.putalpha(alpha)
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(image)
-    draw.ellipse((4, 16, 60, 48), outline=color, width=5)  # eye outline
-    draw.ellipse((22, 22, 42, 42), fill=color)  # iris
+    image.paste(tinted, ((size - alpha.width) // 2, (size - alpha.height) // 2), tinted)
     return image
 
 
