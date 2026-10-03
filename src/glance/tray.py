@@ -5,6 +5,7 @@ Requires the ``tray`` extra: ``pip install glance[tray]``.
 
 from __future__ import annotations
 
+import sys
 import threading
 
 from glance.app import GlanceApp
@@ -54,4 +55,15 @@ def run_with_tray(app: GlanceApp) -> None:
         icon.stop()  # the app stopped on its own, e.g. the monitor layout changed
 
     threading.Thread(target=worker, name="glance-app", daemon=True).start()
+    if sys.platform == "darwin":
+        _hide_dock_icon()
     icon.run()
+
+
+def _hide_dock_icon() -> None:
+    """Run as a menu bar app: no Dock icon for the Python process."""
+    import AppKit
+
+    AppKit.NSApplication.sharedApplication().setActivationPolicy_(
+        AppKit.NSApplicationActivationPolicyAccessory
+    )
