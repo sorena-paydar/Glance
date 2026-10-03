@@ -1,5 +1,5 @@
 import plistlib
-from pathlib import Path
+from pathlib import PurePosixPath as Path  # these files are for macOS and Linux
 
 from glance.desktop import BUNDLE_ID, linux_desktop_entry, macos_info_plist, macos_launcher
 
