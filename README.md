@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-dark.svg">
+    <img src="docs/brand/logo.svg" alt="Glance" width="260">
+  </picture>
+</p>
+
 # Glance
 
 Move your cursor to the monitor you are looking at.
