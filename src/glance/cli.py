@@ -86,9 +86,13 @@ def cmd_start(args, settings: Settings, ui=None) -> int:
 
 def cmd_app(args, settings: Settings) -> int:
     from glance.config import log_path
+    from glance.instance import already_running
     from glance.ui import create_ui
 
     ui = create_ui(gui=True)
+    if already_running():
+        ui.notify("Glance is already running. Find it in the menu bar.")
+        return 0
     args.tray = True
     code = cmd_start(args, settings, ui)
     if code not in (0, 130) and calibration_path().exists():
