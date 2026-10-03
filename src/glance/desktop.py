@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import plistlib
 import shutil
@@ -115,59 +116,56 @@ def _macos_app_path() -> Path:
     return Path.home() / "Applications" / f"{APP_NAME}.app"
 
 
-def macos_info_plist() -> bytes:
-    return plistlib.dumps(
-        {
-            "CFBundleName": APP_NAME,
-            "CFBundleDisplayName": APP_NAME,
-            "CFBundleIdentifier": BUNDLE_ID,
-            "CFBundleExecutable": APP_NAME,
-            "CFBundleIconFile": APP_NAME,
-            "CFBundlePackageType": "APPL",
-            "CFBundleShortVersionString": __version__,
-            "CFBundleVersion": __version__,
-            "LSMinimumSystemVersion": "11.0",
-            "LSUIElement": True,  # menu bar app: no Dock icon
-            "NSHighResolutionCapable": True,
-            "NSCameraUsageDescription": (
-                "Glance uses the camera to see which monitor you are looking at. "
-                "Video never leaves your Mac."
-            ),
-        }
+def macos_info_plist_overrides() -> dict:
+    """Keys set on top of the Info.plist that osacompile generates."""
+    return {
+        "CFBundleName": APP_NAME,
+        "CFBundleDisplayName": APP_NAME,
+        "CFBundleIdentifier": BUNDLE_ID,
+        "CFBundleIconFile": "applet",
+        "CFBundleShortVersionString": __version__,
+        "CFBundleVersion": __version__,
+        "LSMinimumSystemVersion": "11.0",
+        "LSUIElement": True,  # menu bar app: no Dock icon
+        "NSHighResolutionCapable": True,
+        "NSCameraUsageDescription": (
+            "Glance uses the camera to see which monitor you are looking at. "
+            "Video never leaves your Mac."
+        ),
+    }
+
+
+def macos_launcher_script(exe: Path, log: Path) -> str:
+    """AppleScript for the app: start Glance in the background, then quit.
+
+    A compiled applet is a real app that checks in with macOS (a shell script as
+    the bundle executable never does, so macOS reports it as "not open anymore").
+    Glance keeps running in the menu bar, and macOS attributes its permission
+    requests to this app.
+    """
+    command = (
+        '"export GLANCE_APP_BUNDLE=" & quoted form of (POSIX path of (path to me)) & '
+        f'"; nohup " & quoted form of "{exe}" & " app >> " & quoted form of "{log}" & '
+        '" 2>&1 < /dev/null &"'
     )
-
-
-def macos_launcher(exe: Path, log: Path) -> str:
-    return f"""#!/bin/sh
-# Starts Glance as a desktop app. Created by `glance desktop`; recreated on reinstall.
-GLANCE_APP_BUNDLE="$(cd "$(dirname "$0")/../.." && pwd)"
-export GLANCE_APP_BUNDLE
-"{exe}" app >>"{log}" 2>&1
-"""
-
-
-def _write_if_changed(path: Path, data: bytes, mode: int | None = None) -> bool:
-    if path.exists() and path.read_bytes() == data:
-        return False
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
-    if mode is not None:
-        path.chmod(mode)
-    return True
+    return f"on run\n\tdo shell script {command}\nend run\n"
 
 
 def _install_macos(exe: Path) -> list[Path]:
     app = _macos_app_path()
-    contents = app / "Contents"
-    changed = _write_if_changed(contents / "Info.plist", macos_info_plist())
-    changed |= _write_if_changed(
-        contents / "MacOS" / APP_NAME, macos_launcher(exe, log_path()).encode(), 0o755
-    )
-    if _icon_available():
-        changed |= _write_if_changed(contents / "Resources" / f"{APP_NAME}.icns", _icns_bytes())
-    if changed:
-        # A stable ad-hoc signature lets macOS remember the permissions granted to
-        # Glance; it only changes when the bundle's contents do.
+    script = macos_launcher_script(exe, log_path())
+    icns = _icns_bytes() if _icon_available() else b""
+    overrides = macos_info_plist_overrides()
+    stamp = hashlib.sha256(
+        script.encode() + icns + plistlib.dumps(overrides, sort_keys=True)
+    ).hexdigest()
+    stamp_file = app / "Contents" / "Resources" / "glance-build.txt"
+
+    # Rebuild only when something changed: every rebuild gets a new ad-hoc
+    # signature, and macOS would forget the permissions granted to Glance.
+    if not (stamp_file.exists() and stamp_file.read_text() == stamp):
+        _build_applet(app, script, overrides, icns)
+        stamp_file.write_text(stamp)
         subprocess.run(["codesign", "--force", "--sign", "-", str(app)], capture_output=True)
         lsregister = (
             "/System/Library/Frameworks/CoreServices.framework/Frameworks/"
@@ -180,6 +178,25 @@ def _install_macos(exe: Path) -> list[Path]:
         link.unlink(missing_ok=True)
         link.symlink_to(app)
     return [app, link]
+
+
+def _build_applet(app: Path, script: str, overrides: dict, icns: bytes) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        built = Path(tmp) / f"{APP_NAME}.app"
+        subprocess.run(["osacompile", "-o", str(built), "-e", script], check=True)
+        info_path = built / "Contents" / "Info.plist"
+        info = plistlib.loads(info_path.read_bytes())
+        info.update(overrides)
+        info.pop("CFBundleIconName", None)  # use our .icns, not the asset catalog
+        info_path.write_bytes(plistlib.dumps(info))
+        resources = built / "Contents" / "Resources"
+        (resources / "Assets.car").unlink(missing_ok=True)
+        if icns:
+            (resources / "applet.icns").write_bytes(icns)
+        if app.exists():
+            shutil.rmtree(app)
+        app.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(built), str(app))
 
 
 def _icns_bytes() -> bytes:

@@ -1,22 +1,27 @@
-import plistlib
 from pathlib import PurePosixPath as Path  # these files are for macOS and Linux
 
-from glance.desktop import BUNDLE_ID, linux_desktop_entry, macos_info_plist, macos_launcher
+from glance.desktop import (
+    BUNDLE_ID,
+    linux_desktop_entry,
+    macos_info_plist_overrides,
+    macos_launcher_script,
+)
 
 
-def test_macos_info_plist_is_a_menu_bar_app_with_camera_reason():
-    info = plistlib.loads(macos_info_plist())
+def test_macos_plist_overrides_make_a_menu_bar_app_with_camera_reason():
+    info = macos_info_plist_overrides()
     assert info["CFBundleIdentifier"] == BUNDLE_ID
-    assert info["CFBundleExecutable"] == "Glance"
     assert info["LSUIElement"] is True
     assert "camera" in info["NSCameraUsageDescription"]
 
 
-def test_macos_launcher_runs_app_mode_and_logs():
-    script = macos_launcher(Path("/opt/glance/bin/glance"), Path("/tmp/glance.log"))
-    assert script.startswith("#!/bin/sh")
-    assert '"/opt/glance/bin/glance" app >>"/tmp/glance.log" 2>&1' in script
+def test_macos_launcher_starts_app_mode_in_background():
+    script = macos_launcher_script(Path("/opt/glance/bin/glance"), Path("/tmp/glance.log"))
+    assert script.startswith("on run")
+    assert 'quoted form of "/opt/glance/bin/glance" & " app >> "' in script
     assert "GLANCE_APP_BUNDLE" in script
+    assert script.rstrip().endswith("end run")
+    assert '2>&1 < /dev/null &"' in script
 
 
 def test_linux_desktop_entry():
