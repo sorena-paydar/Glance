@@ -81,7 +81,7 @@ def cmd_start(args, settings: Settings, ui=None) -> int:
             return 1
     elif not ensure_permissions(ui):
         return 1
-    return cmd_run(args, settings)
+    return cmd_run(args, settings, ui)
 
 
 def cmd_app(args, settings: Settings) -> int:
@@ -178,7 +178,7 @@ def cmd_calibrate(args, settings: Settings) -> int:
     return 0
 
 
-def cmd_run(args, settings: Settings) -> int:
+def cmd_run(args, settings: Settings, ui=None) -> int:
     from glance.app import GlanceApp, LayoutChangedError
     from glance.gaze import CameraError
     from glance.permissions import (
@@ -204,6 +204,9 @@ def cmd_run(args, settings: Settings) -> int:
         return _fail(str(exc))
 
     print(f"Glance is running. Pause/resume: {settings.hotkey}. Quit: Ctrl+C.")
+    if ui is not None and ui.gui:
+        hotkey = settings.hotkey.replace("<", "").replace(">", "")
+        ui.notify(f"Glance is running in the menu bar. Pause with {hotkey}.")
     try:
         if args.tray and _tray_available():
             from glance.tray import run_with_tray

@@ -24,6 +24,8 @@ def terminal_name() -> str:
 class ConsoleUI:
     """Setup in a terminal: printed text and Enter to continue."""
 
+    gui = False
+
     @property
     def app_name(self) -> str:
         """The app macOS grants permissions to: whatever terminal runs Glance."""
@@ -57,6 +59,8 @@ class ConsoleUI:
 
 class DialogUI(ConsoleUI):
     """Setup from the desktop app: native macOS dialogs and notifications."""
+
+    gui = True
 
     @property
     def app_name(self) -> str:
