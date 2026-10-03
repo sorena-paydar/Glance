@@ -182,8 +182,16 @@ def _fit_points(
 ) -> tuple[np.ndarray, float]:
     """Ridge weights for one monitor, with alpha chosen by leave-one-target-out error.
 
+    Features are re-standardised within the monitor (gaze varies far less within one
+    monitor than between monitors) and that scaling is folded into the returned
+    weights, which therefore apply to globally standardised features.
     Returns the weights and the mean error of the best alpha, scaled by ``size``.
     """
+    mu = z.mean(axis=0)
+    sd = z.std(axis=0)
+    sd[sd < 1e-6] = 1.0
+    local = (z - mu) / sd
+
     best_alpha, best_error = RIDGE_ALPHAS[0], float("inf")
     groups = np.unique(g)
     if len(groups) >= 3:
@@ -191,10 +199,15 @@ def _fit_points(
             errors = []
             for group in groups:
                 held = g == group
-                weights = _ridge(z[~held], t[~held], alpha)
-                predicted = np.clip(np.hstack([z[held], np.ones((held.sum(), 1))]) @ weights, 0, 1)
+                weights = _ridge(local[~held], t[~held], alpha)
+                x_held = np.hstack([local[held], np.ones((held.sum(), 1))])
+                predicted = np.clip(x_held @ weights, 0, 1)
                 errors.append(np.linalg.norm((predicted - t[held]) * size, axis=1))
             error = float(np.concatenate(errors).mean())
             if error < best_error:
                 best_alpha, best_error = alpha, error
-    return _ridge(z, t, best_alpha), best_error
+
+    w = _ridge(local, t, best_alpha)
+    slopes = w[:-1] / sd[:, None]
+    intercept = w[-1] - mu @ slopes
+    return np.vstack([slopes, intercept]), best_error
