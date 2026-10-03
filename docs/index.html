@@ -75,18 +75,38 @@
 
       <section id="install">
         <h2>Install</h2>
-        <p class="sub">macOS, Windows and Linux. Needs Python 3.10–3.12 and <a href="https://docs.astral.sh/uv/">uv</a>.</p>
+        <p class="sub">One command. It installs everything Glance needs, then walks you through setup in about a minute.</p>
 
-        <pre><code>git clone https://github.com/sorena-paydar/Glance.git
-cd Glance
-uv tool install ".[tray]"
+        <div class="os-tabs" role="tablist">
+          <button role="tab" aria-selected="true" data-os="unix">macOS / Linux</button>
+          <button role="tab" aria-selected="false" data-os="windows">Windows</button>
+        </div>
+        <div class="copy-block" data-os-panel="unix">
+          <pre><code>curl -fsSL https://sorena-paydar.github.io/Glance/install.sh | sh</code></pre>
+          <button class="btn copy" type="button">Copy</button>
+        </div>
+        <div class="copy-block" data-os-panel="windows" hidden>
+          <pre><code>irm https://sorena-paydar.github.io/Glance/install.ps1 | iex</code></pre>
+          <button class="btn copy" type="button">Copy</button>
+        </div>
+        <p class="note">Paste it into Terminal (macOS), your shell (Linux) or PowerShell (Windows).</p>
 
-glance calibrate      # follow the red dot (~30 s)
-glance run --tray     # start, with a menu bar icon</code></pre>
-
-        <div class="card">
-          <h3>macOS permissions</h3>
-          <p>Give the terminal app that runs Glance access to <strong>Camera</strong>, <strong>Accessibility</strong> and <strong>Input Monitoring</strong> in System Settings › Privacy &amp; Security, then restart the terminal.</p>
+        <div class="grid">
+          <div class="card">
+            <div class="step">Setup guides you through</div>
+            <h3>Permissions, camera, calibration</h3>
+            <p>On macOS it opens the right System Settings pages for Camera, Accessibility and Input Monitoring, then you follow a red dot across your monitors.</p>
+          </div>
+          <div class="card">
+            <div class="step">Every day after</div>
+            <h3>Just run <code>glance</code></h3>
+            <p>Glance sits in your menu bar. Pause with Ctrl+Alt+G. Moved your monitors? It notices and recalibrates.</p>
+          </div>
+          <div class="card">
+            <div class="step">Uninstall</div>
+            <h3>One command too</h3>
+            <p><code>uv tool uninstall glance</code> removes it completely.</p>
+          </div>
         </div>
       </section>
 
@@ -107,6 +127,28 @@ glance run --tray     # start, with a menu bar icon</code></pre>
   </div>
 
   <script>
+    // Install tabs and copy buttons.
+    document.querySelectorAll(".os-tabs button").forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        document.querySelectorAll(".os-tabs button").forEach(function (t) {
+          t.setAttribute("aria-selected", String(t === tab));
+        });
+        document.querySelectorAll("[data-os-panel]").forEach(function (panel) {
+          panel.hidden = panel.dataset.osPanel !== tab.dataset.os;
+        });
+      });
+    });
+    if (/Win/.test(navigator.platform)) document.querySelector('[data-os="windows"]').click();
+    document.querySelectorAll(".copy").forEach(function (button) {
+      button.addEventListener("click", function () {
+        const text = button.parentElement.querySelector("code").textContent;
+        navigator.clipboard.writeText(text).then(function () {
+          button.textContent = "Copied";
+          setTimeout(function () { button.textContent = "Copy"; }, 1500);
+        });
+      });
+    });
+
     // Hero illustration: the "gaze" wanders between screens and the cursor follows.
     (function () {
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
