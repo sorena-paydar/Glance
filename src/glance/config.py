@@ -55,8 +55,13 @@ class Settings:
     pause_while_typing: bool = True
     # Duration of the smooth cursor glide; 0 jumps instantly.
     glide_ms: int = 200
-    # Return the cursor to where it last was on a monitor instead of its centre.
-    remember_position: bool = True
+    # Where the cursor lands on the new monitor: "gaze" (where you are looking),
+    # "last" (where you left it) or "center". Falls back gaze -> last -> center.
+    jump_to: str = "gaze"
+    # Also move the cursor within a monitor when you look far away from it.
+    follow_within_monitor: bool = False
+    # How far (fraction of the monitor's diagonal) gaze must be from the cursor.
+    follow_distance: float = 0.3
     # Global hotkey that pauses/resumes Glance (pynput syntax).
     hotkey: str = "<ctrl>+<alt>+g"
 
