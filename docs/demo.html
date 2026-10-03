@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Glance Live Demo</title>
+  <meta name="description" content="Try Glance in your browser: calibrate with your webcam and see which monitor you are looking at.">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <a class="brand" href="./"><img src="icon.svg" width="28" height="28" alt="">Glance</a>
+      <nav class="links">
+        <a href="./#how">How it works</a>
+        <a href="./#install">Install</a>
+        <a href="https://github.com/sorena-paydar/Glance">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="demo">
+      <h1>Live demo</h1>
+      <p class="sub">
+        Calibrate with your webcam, then look around your monitors. The red dot shows where
+        Glance would move your cursor. Video is processed on this device and never uploaded.
+      </p>
+
+      <div class="panel setup" id="setup">
+        <label for="count">How many monitors do you have?</label>
+        <div class="count-row">
+          <select id="count">
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+          </select>
+          <button class="btn primary" id="start">Start camera</button>
+        </div>
+        <p class="status" id="status" role="status"></p>
+      </div>
+
+      <div class="stage" id="stage" hidden>
+        <div class="monitors" id="monitors"></div>
+
+        <div class="side">
+          <div class="cam">
+            <video id="video" playsinline muted></video>
+            <span class="face" id="face">No face</span>
+          </div>
+
+          <div class="panel" id="calibrate-panel">
+            <h2 id="cal-title">Calibrate</h2>
+            <p id="cal-text">
+              For each monitor: press <kbd>Space</kbd> (or the button), then look at that
+              monitor when you hear the beep and let your eyes wander across it until the
+              double beep.
+            </p>
+            <button class="btn primary" id="cal-btn">Start calibration</button>
+          </div>
+
+          <div class="panel" id="live-panel" hidden>
+            <h2>Live</h2>
+            <p class="engine" id="engine">Waiting for gaze...</p>
+            <p class="hint">
+              Moving your mouse in this page counts as manual input: gaze is ignored
+              while you move it. Click a monitor to "move the cursor" there by hand.
+            </p>
+            <ol class="log" id="log"></ol>
+            <button class="btn" id="recal-btn">Recalibrate</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="site">
+      <span>Glance · MIT License</span>
+      <a href="./#install">Get the desktop app</a>
+    </footer>
+  </div>
+
+  <script type="module" src="demo.js"></script>
+</body>
+</html>

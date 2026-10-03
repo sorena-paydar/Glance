@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Glance</title>
+  <meta name="description" content="Glance moves your cursor to the monitor you are looking at, using only your webcam. Manual trackpad and mouse movement always wins.">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <a class="brand" href="./"><img src="icon.svg" width="28" height="28" alt="">Glance</a>
+      <nav class="links">
+        <a href="#how">How it works</a>
+        <a href="#install">Install</a>
+        <a href="demo.html">Demo</a>
+        <a href="https://github.com/sorena-paydar/Glance">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <div class="hero">
+        <h1>Your cursor follows your eyes.</h1>
+        <p class="lede">
+          With several monitors, you look at another screen and the cursor is still
+          stuck on the old one. Glance watches your webcam, works out which monitor
+          you are looking at, and moves the cursor there. No eye-tracking hardware needed.
+        </p>
+        <div class="actions">
+          <a class="btn primary" href="demo.html">Try the live demo</a>
+          <a class="btn" href="#install">Install</a>
+        </div>
+
+        <div class="scene" aria-hidden="true">
+          <div class="screen s1"><div class="cursor"></div></div>
+          <div class="screen s2 active"><div class="cursor"></div></div>
+          <div class="screen s3"><div class="cursor"></div></div>
+        </div>
+      </div>
+
+      <section id="how">
+        <h2>How it works</h2>
+        <p class="sub">Everything runs locally on your computer. The camera image never leaves it.</p>
+        <div class="grid">
+          <div class="card">
+            <div class="step">01 · See</div>
+            <h3>Track your face</h3>
+            <p>MediaPipe Face Landmarker turns every webcam frame into head rotation, iris position and eye-direction features.</p>
+          </div>
+          <div class="card">
+            <div class="step">02 · Learn</div>
+            <h3>Calibrate once</h3>
+            <p>Look at five dots on each monitor for about 30 seconds. Glance learns what looking at each screen means for you.</p>
+          </div>
+          <div class="card">
+            <div class="step">03 · Move</div>
+            <h3>Jump the cursor</h3>
+            <p>When your gaze rests on another monitor, the cursor jumps back to where you last left it there.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="manual">
+        <h2>Manual control always wins</h2>
+        <p class="sub">Glance never fights your trackpad or mouse.</p>
+        <ul class="rules">
+          <li><strong>Hands on, gaze off</strong><span>No jumps while you move, click, drag or scroll, and for a short grace period after.</span></li>
+          <li><strong>Your choice sticks</strong><span>Move the cursor to one monitor while reading another, and Glance leaves it there until your gaze moves somewhere new.</span></li>
+          <li><strong>No jitter</strong><span>Brief glances are ignored. Your gaze has to rest on a monitor before the cursor jumps.</span></li>
+          <li><strong>Typing is safe</strong><span>No jumps while you type. Pause everything at any time with Ctrl+Alt+G.</span></li>
+        </ul>
+      </section>
+
+      <section id="install">
+        <h2>Install</h2>
+        <p class="sub">macOS, Windows and Linux. Needs Python 3.10–3.12 and <a href="https://docs.astral.sh/uv/">uv</a>.</p>
+
+        <pre><code>git clone https://github.com/sorena-paydar/Glance.git
+cd Glance
+uv tool install ".[tray]"
+
+glance calibrate      # follow the red dot (~30 s)
+glance run --tray     # start, with a menu bar icon</code></pre>
+
+        <div class="card">
+          <h3>macOS permissions</h3>
+          <p>Give the terminal app that runs Glance access to <strong>Camera</strong>, <strong>Accessibility</strong> and <strong>Input Monitoring</strong> in System Settings › Privacy &amp; Security, then restart the terminal.</p>
+        </div>
+      </section>
+
+      <section id="demo">
+        <h2>Try it in your browser</h2>
+        <p class="sub">
+          The demo uses the same face features and switching rules as the app, right in this page.
+          Browsers can't move your real cursor, so it shows where Glance would move it.
+        </p>
+        <a class="btn primary" href="demo.html">Open the live demo</a>
+      </section>
+    </main>
+
+    <footer class="site">
+      <span>Glance · MIT License</span>
+      <a href="https://github.com/sorena-paydar/Glance">github.com/sorena-paydar/Glance</a>
+    </footer>
+  </div>
+
+  <script>
+    // Hero illustration: the "gaze" wanders between screens and the cursor follows.
+    (function () {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      const screens = document.querySelectorAll(".scene .screen");
+      const order = [1, 0, 1, 2];
+      let i = 0;
+      setInterval(function () {
+        i = (i + 1) % order.length;
+        screens.forEach(function (s, n) { s.classList.toggle("active", n === order[i]); });
+      }, 1800);
+    })();
+  </script>
+</body>
+</html>
