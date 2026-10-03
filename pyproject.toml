@@ -12,12 +12,13 @@ dependencies = [
     "pynput>=1.7.7",
     "screeninfo>=0.8.1",
     "platformdirs>=4.2",
+    "Pillow>=10.0",
     "pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'",
     "pyobjc-framework-Quartz>=10.0; sys_platform == 'darwin'",
 ]
 
 [project.optional-dependencies]
-tray = ["pystray>=0.19", "Pillow>=10.0"]
+tray = ["pystray>=0.19"]
 
 [project.scripts]
 glance = "glance.cli:main"
