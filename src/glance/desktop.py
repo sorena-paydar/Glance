@@ -148,7 +148,9 @@ def macos_launcher_script(exe: Path, log: Path) -> str:
         f'"; nohup " & quoted form of "{exe}" & " app >> " & quoted form of "{log}" & '
         '" 2>&1 < /dev/null &"'
     )
-    return f"on run\n\tdo shell script {command}\nend run\n"
+    # The short delay lets macOS finish registering the launch before the applet
+    # quits; otherwise `open` reports error -600.
+    return f"on run\n\tdo shell script {command}\n\tdelay 1\nend run\n"
 
 
 def _install_macos(exe: Path) -> list[Path]:
