@@ -14,6 +14,15 @@ jobs:
       - run: uvx ruff check src tests
       - run: uvx ruff format --check src tests
 
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tests/js/glance-core.test.mjs
+
   test:
     strategy:
       fail-fast: false
