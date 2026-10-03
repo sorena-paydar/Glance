@@ -57,3 +57,19 @@ def test_constant_feature_does_not_break_scaling():
     x = [[1.0, 0.0], [1.1, 0.0], [5.0, 0.0], [5.1, 0.0]]
     model = GazeModel.fit(x, [0, 0, 1, 1], ["a", "b"], layout="", k=1)
     assert model.predict_proba([5.05, 0.0]).argmax() == 1
+
+
+def test_gaze_between_targets_still_counts():
+    rng = np.random.default_rng(2)
+    features, labels, groups = [], [], []
+    for label, center in enumerate(([-30.0, 0.0], [30.0, 0.0])):
+        for gi, offset in enumerate(([0, 0], [8, 8], [-8, 8], [8, -8], [-8, -8])):
+            features += list(np.asarray(center) + offset + rng.normal(0, 0.3, size=(20, 2)))
+            labels += [label] * 20
+            groups += [label * 10 + gi] * 20
+    model = GazeModel.fit(features, labels, ["a", "b"], layout="", groups=groups)
+    # Halfway between two targets on monitor "b": tight clusters, but still "b".
+    probs = model.predict_proba([34.0, 4.0])
+    assert probs is not None and probs.argmax() == 1
+    # Far outside every monitor region.
+    assert model.predict_proba([0.0, 80.0]) is None

@@ -40,9 +40,16 @@ class GazeModel:
         labels: Sequence[int],
         monitor_keys: list[str],
         layout: str,
+        groups: Sequence[int] | None = None,
         k: int = 7,
-        novelty_scale: float = 3.0,
+        novelty_scale: float = 1.5,
     ) -> GazeModel:
+        """Fit the model.
+
+        ``groups`` identifies the calibration target each sample was taken at. When
+        given, the novelty threshold is derived from the gaps between targets on the
+        same monitor, so gaze anywhere between targets still counts as that monitor.
+        """
         x = np.asarray(features, dtype=np.float64)
         y = np.asarray(labels, dtype=np.int64)
         if x.ndim != 2 or len(x) != len(y) or len(x) == 0:
@@ -57,11 +64,20 @@ class GazeModel:
         z = (x - mean) / std
         k = max(1, min(k, len(z) - 1))
 
-        # Typical spread of the data: distance from each sample to its k nearest others.
         dists = np.linalg.norm(z[:, None, :] - z[None, :, :], axis=2)
         np.fill_diagonal(dists, np.inf)
-        knn = np.sort(dists, axis=1)[:, :k].mean(axis=1)
-        threshold = float(np.percentile(knn, 95) * novelty_scale)
+        if groups is not None:
+            # Distance from each sample to the nearest sample of another target on
+            # the same monitor: the size of the gaps inside a monitor's region.
+            g = np.asarray(groups)
+            unrelated = (y[:, None] != y[None, :]) | (g[:, None] == g[None, :])
+            gaps = np.where(unrelated, np.inf, dists).min(axis=1)
+            spread = gaps[np.isfinite(gaps)]
+        else:
+            spread = np.array([])
+        if spread.size == 0:
+            spread = dists.min(axis=1)
+        threshold = float(np.percentile(spread, 95) * novelty_scale)
 
         return cls(monitor_keys, layout, mean, std, z, y, max(threshold, 1e-6), k)
 
@@ -72,7 +88,7 @@ class GazeModel:
         k = min(self.k, len(dists))
         nearest = np.argpartition(dists, k - 1)[:k]
         near_d = dists[nearest]
-        if near_d.mean() > self.novelty_threshold:
+        if near_d.min() > self.novelty_threshold:
             return None
         weights = 1.0 / (near_d + 1e-6)
         votes = np.bincount(self.labels[nearest], weights=weights, minlength=self.n_monitors)
