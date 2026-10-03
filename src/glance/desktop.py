@@ -25,6 +25,8 @@ BUNDLE_ID = "io.github.sorena-paydar.glance"
 APP_NAME = "Glance"
 DESCRIPTION = "Move your cursor to the monitor you are looking at"
 ASSETS = Path(__file__).parent / "assets"
+# Bump when the way Glance.app is built or signed changes, to force a rebuild.
+BUILD_VERSION = "2"
 
 
 def glance_executable() -> Path:
@@ -159,7 +161,7 @@ def _install_macos(exe: Path) -> list[Path]:
     icns = _icns_bytes() if _icon_available() else b""
     overrides = macos_info_plist_overrides()
     stamp = hashlib.sha256(
-        script.encode() + icns + plistlib.dumps(overrides, sort_keys=True)
+        BUILD_VERSION.encode() + script.encode() + icns + plistlib.dumps(overrides, sort_keys=True)
     ).hexdigest()
     stamp_file = app / "Contents" / "Resources" / "glance-build.txt"
 
@@ -168,7 +170,7 @@ def _install_macos(exe: Path) -> list[Path]:
     if not (stamp_file.exists() and stamp_file.read_text() == stamp):
         _build_applet(app, script, overrides, icns)
         stamp_file.write_text(stamp)
-        subprocess.run(["codesign", "--force", "--sign", "-", str(app)], capture_output=True)
+        _sign(app)
         lsregister = (
             "/System/Library/Frameworks/CoreServices.framework/Frameworks/"
             "LaunchServices.framework/Support/lsregister"
@@ -180,6 +182,31 @@ def _install_macos(exe: Path) -> list[Path]:
         link.unlink(missing_ok=True)
         link.symlink_to(app)
     return [app, link]
+
+
+def _sign(app: Path) -> None:
+    """Ad-hoc sign with a designated requirement naming only the bundle identifier.
+
+    An ad-hoc signature's default requirement is its content hash, so macOS would
+    forget Glance's permissions whenever the app is rebuilt. Requiring just the
+    identifier keeps the permissions across rebuilds and updates.
+    """
+    requirement = f'=designated => identifier "{BUNDLE_ID}"'
+    subprocess.run(
+        [
+            "codesign",
+            "--force",
+            "--sign",
+            "-",
+            "--identifier",
+            BUNDLE_ID,
+            "--requirements",
+            requirement,
+            str(app),
+        ],
+        capture_output=True,
+        check=True,
+    )
 
 
 def _build_applet(app: Path, script: str, overrides: dict, icns: bytes) -> None:
