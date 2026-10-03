@@ -51,6 +51,8 @@ class Settings:
     # After you move the cursor yourself, don't pull it back to the monitor you were
     # looking at while moving; wait until your gaze actually moves somewhere new.
     respect_manual_choice: bool = True
+    # Treat typing like pointer activity: no jumps while you are typing.
+    pause_while_typing: bool = True
     # Return the cursor to where it last was on a monitor instead of its centre.
     remember_position: bool = True
     # Global hotkey that pauses/resumes Glance (pynput syntax).
