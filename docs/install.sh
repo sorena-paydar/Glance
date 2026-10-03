@@ -23,8 +23,9 @@ if ! command -v uv >/dev/null 2>&1; then
   export PATH
 fi
 
-# uv downloads Python 3.12 by itself if it isn't installed.
-uv tool install --force --python 3.12 "$SOURCE"
+# Use uv's standalone Python: Homebrew's framework Python relaunches itself as
+# "Python.app", so macOS would check Python's permissions instead of Glance's.
+uv tool install --force --managed-python --python 3.12 "$SOURCE"
 uv tool update-shell >/dev/null 2>&1 || true
 
 BIN="$(uv tool dir --bin)"

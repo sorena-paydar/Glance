@@ -21,7 +21,7 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 }
 
 # uv downloads Python 3.12 by itself if it isn't installed.
-uv tool install --force --python 3.12 $Source
+uv tool install --force --managed-python --python 3.12 $Source
 if ($LASTEXITCODE -ne 0) { throw "Installing Glance failed." }
 uv tool update-shell | Out-Null
 
