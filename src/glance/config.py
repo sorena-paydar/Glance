@@ -6,7 +6,7 @@ import json
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
-from platformdirs import user_cache_dir, user_config_dir
+from platformdirs import user_cache_dir, user_config_dir, user_log_dir
 
 APP_NAME = "glance"
 
@@ -20,6 +20,12 @@ def config_dir() -> Path:
 def cache_dir() -> Path:
     path = Path(user_cache_dir(APP_NAME))
     path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def log_path() -> Path:
+    path = Path(user_log_dir(APP_NAME)) / "glance.log"
+    path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
 

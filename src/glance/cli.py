@@ -21,6 +21,9 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("setup", help="guided setup: permissions, camera and calibration")
+    sub.add_parser("app", help="start as a desktop app (dialogs instead of the terminal)")
+    desktop = sub.add_parser("desktop", help="add Glance to the desktop and app launcher")
+    desktop.add_argument("--remove", action="store_true", help="remove the desktop app")
     sub.add_parser("monitors", help="list detected monitors")
     calibrate = sub.add_parser("calibrate", help="calibrate gaze for your monitors")
     calibrate.add_argument("--camera", type=int, help="camera index (default from settings)")
@@ -42,6 +45,8 @@ def main(argv: list[str] | None = None) -> int:
 
     commands = {
         "start": cmd_start,
+        "app": cmd_app,
+        "desktop": cmd_desktop,
         "setup": cmd_setup,
         "monitors": cmd_monitors,
         "calibrate": cmd_calibrate,
@@ -55,10 +60,14 @@ def main(argv: list[str] | None = None) -> int:
         return 130
 
 
-def cmd_start(args, settings: Settings) -> int:
+def cmd_start(args, settings: Settings, ui=None) -> int:
+    """Set up when needed, then run with the tray icon."""
     from glance.classifier import GazeModel
     from glance.displays import layout_key
+    from glance.setup import ensure_permissions, run_setup
+    from glance.ui import ConsoleUI
 
+    ui = ui or ConsoleUI()
     needs_setup = not calibration_path().exists()
     if not needs_setup:
         try:
@@ -66,16 +75,43 @@ def cmd_start(args, settings: Settings) -> int:
         except (ValueError, KeyError):
             needs_setup = True
         if needs_setup:
-            print("Your monitors changed since the last calibration; let's recalibrate.")
-    if needs_setup and cmd_setup(args, settings) != 0:
+            ui.say("Your monitors or Glance changed since the last calibration; let's recalibrate.")
+    if needs_setup:
+        if not run_setup(settings, ui):
+            return 1
+    elif not ensure_permissions(ui):
         return 1
     return cmd_run(args, settings)
+
+
+def cmd_app(args, settings: Settings) -> int:
+    from glance.config import log_path
+    from glance.ui import create_ui
+
+    ui = create_ui(gui=True)
+    args.tray = True
+    code = cmd_start(args, settings, ui)
+    if code not in (0, 130) and calibration_path().exists():
+        ui.alert(f"Glance stopped because of a problem. Details are in {log_path()}.")
+    return code
 
 
 def cmd_setup(args, settings: Settings) -> int:
     from glance.setup import run_setup
 
     return 0 if run_setup(settings) else 1
+
+
+def cmd_desktop(args, settings: Settings) -> int:
+    from glance.desktop import install_desktop_app, remove_desktop_app
+
+    if args.remove:
+        for path in remove_desktop_app():
+            print(f"Removed {path}")
+        return 0
+    for path in install_desktop_app():
+        print(f"Added {path}")
+    return 0
 
 
 def cmd_monitors(args, settings: Settings) -> int:
