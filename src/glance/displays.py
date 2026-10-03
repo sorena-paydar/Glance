@@ -19,6 +19,8 @@ class Monitor:
     height: int
     name: str = ""
     is_primary: bool = False
+    # OS display identifier (CGDirectDisplayID on macOS); not stable across reboots.
+    native_id: int = 0
 
     @property
     def key(self) -> str:
@@ -87,6 +89,7 @@ def _macos_monitors() -> list[Monitor]:
                 height=int(bounds.size.height),
                 name=names.get(display_id, ""),
                 is_primary=display_id == main,
+                native_id=int(display_id),
             )
         )
     return monitors
