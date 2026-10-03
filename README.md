@@ -23,17 +23,36 @@ Works on macOS, Windows and Linux with any webcam. No eye-tracking hardware need
    tracks your face in the webcam image. Each frame becomes a feature vector: head
    rotation and position, where each iris sits inside the eye, and eye-direction
    blendshapes.
-2. **Calibration.** You look at five targets on each monitor. A k-nearest-neighbours
-   model learns which features belong to which monitor, and recognises when you are
-   looking at none of them (keyboard, phone, away).
-3. **Switching.** A decision engine smooths the predictions and applies dwell,
-   confidence and cooldown rules, plus the manual-input guard above. When it decides
-   to switch, the cursor returns to where you last left it on that monitor (or its
-   centre).
+2. **Calibration.** You look at a 3x3 grid of targets on each monitor. A
+   k-nearest-neighbours model learns which features belong to which monitor (and
+   recognises when you are looking at none of them: keyboard, phone, away), and a
+   per-monitor regression learns *where* on the monitor you are looking.
+3. **Moving the cursor.** A decision engine smooths the predictions and applies
+   dwell, confidence and cooldown rules, plus the manual-input guard above. When it
+   decides to switch, the cursor glides smoothly to where you are looking on the new
+   monitor.
 
-A webcam can tell *which monitor* you are looking at reliably, but not the exact
-pixel, so Glance moves the cursor between monitors rather than tracking your gaze
-point.
+## Accuracy
+
+A webcam reliably tells **which monitor** you are looking at. **Where** on the
+monitor is approximate, usually off by a few centimetres, so the cursor lands near
+what you look at and you fine-tune with the trackpad. Pixel-exact eye tracking needs
+infrared hardware. Calibration measures and shows the expected error for each of
+your monitors.
+
+To get the most out of it:
+
+- **Recalibrate** after moving your seat, monitors or camera, and in very different
+  lighting. Calibration is personal: it learns *your* face in *your* setup.
+- **Camera placement:** centred above or below the monitors you use most, facing
+  you, at roughly eye height. A laptop camera works; an external webcam on top of the
+  middle monitor usually works better.
+- **Light your face** evenly from the front. Avoid a bright window behind you and
+  strong reflections in glasses.
+- **Sit at your usual distance** (50-80 cm) during calibration and use.
+- **Turn your head a little** towards what you look at, during calibration and use:
+  head direction is measured far more precisely than eye direction.
+- **Keep your eyes on each dot** until it moves during calibration.
 
 ## Install
 
@@ -54,34 +73,30 @@ fetches Python by itself), installs the `glance` command and starts guided setup
 
 ## First run
 
-Setup takes about a minute and walks you through:
+On macOS the installer puts **Glance** in your Applications folder and on your
+Desktop, and opens it. Setup takes about two minutes:
 
-1. **Monitors**: Glance lists the monitors it found (you need at least two).
-2. **Permissions** (macOS): it opens the right System Settings pages. Switch on your
-   terminal app (Terminal, iTerm, Warp...) for **Accessibility** (to move the cursor)
-   and **Input Monitoring** (to notice your trackpad, mouse and keyboard). macOS then
-   asks you to reopen the terminal; run `glance` again to continue.
+1. **Monitors**: Glance checks that you have at least two.
+2. **Permissions**: it opens the right System Settings pages; switch on **Glance**
+   for **Accessibility** (to move the cursor) and **Input Monitoring** (to notice
+   your trackpad, mouse and keyboard). Glance restarts itself to apply them.
 3. **Camera**: allow camera access when macOS asks.
 4. **Calibration**: a red dot appears on each monitor in turn; look at it until it
    moves.
 
-Glance then starts in your menu bar.
+Glance then runs in your menu bar. On Windows and Linux, setup runs in the terminal
+and Glance is added to the Desktop and Start menu / app launcher.
 
 ## Everyday use
+
+Double-click **Glance** on your Desktop (or in Launchpad / the Start menu), or run:
 
 ```sh
 glance
 ```
 
-That's it. Pause and resume with **Ctrl+Alt+G**, or from the menu bar icon. If you
-rearrange your monitors, Glance notices and recalibrates.
-
-**Tips for good accuracy**
-
-- Sit as you normally do during calibration.
-- Turning your head slightly towards a monitor helps much more than moving only
-  your eyes, especially with monitors that are close together.
-- Even, frontal lighting works best. Avoid a bright window behind you.
+Pause and resume with **Ctrl+Alt+G**, or from the menu bar icon. If you rearrange
+your monitors, Glance notices and recalibrates.
 
 **Other commands**
 
@@ -91,13 +106,14 @@ glance calibrate   # recalibrate only
 glance preview     # camera view with live predictions, for troubleshooting
 glance monitors    # list detected monitors
 glance config      # show settings and where they are stored
+glance desktop     # (re)create the desktop app and shortcuts
 ```
 
-**Uninstall**: `uv tool uninstall glance`
+**Uninstall**: `glance desktop --remove && uv tool uninstall glance`
 
 ## Settings
 
-`uv run glance config` shows the settings file location and current values. Edit
+`glance config` shows the settings file location and current values. Edit
 the JSON to tune behaviour:
 
 | Setting | Default | Meaning |
@@ -111,7 +127,10 @@ the JSON to tune behaviour:
 | `cooldown_ms` | `600` | Minimum time between two jumps |
 | `respect_manual_choice` | `true` | Don't undo a manual move until your gaze changes |
 | `pause_while_typing` | `true` | Treat typing as manual activity |
-| `remember_position` | `true` | Return to the last position on a monitor instead of its centre |
+| `glide_ms` | `200` | Duration of the smooth cursor glide (0 jumps instantly) |
+| `jump_to` | `"gaze"` | Where the cursor lands on a new monitor: `"gaze"`, `"last"` (where you left it) or `"center"` |
+| `follow_within_monitor` | `false` | Also move the cursor within a monitor when you look far away from it |
+| `follow_distance` | `0.3` | How far gaze must be from the cursor for that, as a fraction of the monitor diagonal |
 | `hotkey` | `<ctrl>+<alt>+g` | Pause/resume hotkey ([pynput syntax](https://pynput.readthedocs.io/en/latest/keyboard.html#global-hotkeys)) |
 
 ## Development
@@ -131,9 +150,10 @@ uvx ruff check src tests && uvx ruff format --check src tests
 | `classifier.py` | Gaze features to monitor probabilities |
 | `calibration.py`, `overlay.py` | Calibration targets and model fitting |
 | `engine.py` | When to jump (pure logic, fully unit-tested) |
-| `pointer.py` | Moving the cursor and detecting manual input |
+| `pointer.py`, `motion.py` | Moving and gliding the cursor, detecting manual input |
 | `displays.py` | Monitor layout |
-| `app.py`, `cli.py`, `setup.py`, `tray.py` | Runtime loop, guided setup and user interfaces |
+| `app.py`, `cli.py`, `setup.py`, `ui.py`, `tray.py` | Runtime loop, guided setup and user interfaces |
+| `desktop.py` | Desktop app (macOS) and shortcuts (Windows, Linux) |
 | `docs/` | Website, live demo (`glance-core.js`) and installers |
 
 ## License
