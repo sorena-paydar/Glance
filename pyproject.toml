@@ -1,0 +1,44 @@
+[project]
+name = "glance"
+version = "0.1.0"
+description = "Move your cursor to the monitor you are looking at."
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = "MIT"
+authors = [{ name = "Sorena Paydar" }]
+dependencies = [
+    "mediapipe>=0.10.14",
+    "opencv-python>=4.9",
+    "numpy>=1.26",
+    "pynput>=1.7.7",
+    "screeninfo>=0.8.1",
+    "platformdirs>=4.2",
+    "pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'",
+    "pyobjc-framework-Quartz>=10.0; sys_platform == 'darwin'",
+]
+
+[project.optional-dependencies]
+tray = ["pystray>=0.19", "Pillow>=10.0"]
+
+[project.scripts]
+glance = "glance.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/glance"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
