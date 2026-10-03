@@ -47,6 +47,8 @@
 
 * { box-sizing: border-box; }
 
+[hidden] { display: none !important; }
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {
@@ -212,7 +214,8 @@ footer.site {
 .screen.active .cursor { opacity: 1; }
 
 @media (max-width: 560px) {
-  nav.links { gap: 14px; }
+  nav.links { gap: 14px; font-size: 14px; }
+  nav.links a.wide { display: none; }
   .screen.s1 { width: 130px; height: 78px; }
   .screen.s2 { width: 104px; height: 66px; }
   .screen.s3 { width: 64px; height: 108px; }
