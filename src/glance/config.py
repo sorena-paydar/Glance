@@ -33,6 +33,11 @@ def settings_path() -> Path:
     return config_dir() / "settings.json"
 
 
+def recalibrate_request_path() -> Path:
+    """Exists while a restart into recalibration is pending (desktop app)."""
+    return cache_dir() / "recalibrate-requested"
+
+
 def calibration_path() -> Path:
     return config_dir() / "calibration.json"
 

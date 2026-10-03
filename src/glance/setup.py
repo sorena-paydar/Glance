@@ -55,6 +55,19 @@ def run_setup(settings: Settings, ui=None) -> bool:
     return True
 
 
+def recalibrate(settings: Settings, ui=None) -> bool:
+    """Run only the calibration step. Returns True if a new calibration was saved."""
+    ui = ui or ConsoleUI()
+    monitors = get_monitors()
+    tracker = _start_camera(settings, ui)
+    if tracker is None:
+        return False
+    try:
+        return _wait_for_face(tracker, ui) and _calibrate(tracker, monitors, ui)
+    finally:
+        tracker.stop()
+
+
 def ensure_permissions(ui) -> bool:
     """Make sure macOS permissions are granted; guide the user if not."""
     if sys.platform != "darwin":

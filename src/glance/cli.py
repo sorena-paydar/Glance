@@ -63,8 +63,9 @@ def main(argv: list[str] | None = None) -> int:
 def cmd_start(args, settings: Settings, ui=None) -> int:
     """Set up when needed, then run with the tray icon."""
     from glance.classifier import GazeModel
+    from glance.config import recalibrate_request_path
     from glance.displays import layout_key
-    from glance.setup import ensure_permissions, run_setup
+    from glance.setup import ensure_permissions, recalibrate, run_setup
     from glance.ui import ConsoleUI
 
     ui = ui or ConsoleUI()
@@ -81,6 +82,9 @@ def cmd_start(args, settings: Settings, ui=None) -> int:
             return 1
     elif not ensure_permissions(ui):
         return 1
+    elif recalibrate_request_path().exists():  # chosen from the menu bar icon
+        recalibrate_request_path().unlink()
+        recalibrate(settings, ui)  # on cancel, keep the previous calibration
     return cmd_run(args, settings, ui)
 
 

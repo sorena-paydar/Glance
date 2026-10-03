@@ -5,11 +5,14 @@ Requires the ``tray`` extra: ``pip install glance[tray]``.
 
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
 import threading
 from pathlib import Path
 
 from glance.app import GlanceApp
+from glance.config import recalibrate_request_path
 
 ACTIVE = (65, 87, 234)  # logo blue
 PAUSED = (150, 150, 150)
@@ -46,12 +49,21 @@ def run_with_tray(app: GlanceApp) -> None:
         app.stopped.set()
         icon.stop()
 
+    def recalibrate(icon, item) -> None:
+        # Calibration needs the main thread, which the icon owns: restart into it.
+        recalibrate_request_path().touch()
+        bundle = os.environ["GLANCE_APP_BUNDLE"]
+        subprocess.Popen(["/bin/sh", "-c", f'sleep 2; open -n "{bundle}"'], start_new_session=True)
+        quit_(icon, item)
+
+    in_app = sys.platform == "darwin" and "GLANCE_APP_BUNDLE" in os.environ
     icon = pystray.Icon(
         "glance",
         _icon_image(ACTIVE),
         "Glance",
         menu=pystray.Menu(
             pystray.MenuItem("Paused", toggle, checked=is_paused),
+            pystray.MenuItem("Recalibrate\u2026", recalibrate, visible=in_app),
             pystray.MenuItem("Quit Glance", quit_),
         ),
     )
