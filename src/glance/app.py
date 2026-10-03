@@ -68,13 +68,24 @@ class GlanceApp:
 
         self.tracker.start()
         self.pointer.start()
-        hotkeys = keyboard.GlobalHotKeys({self.settings.hotkey: self.toggle_pause})
-        hotkeys.start()
-        self._listeners.append(hotkeys)
-        if self.settings.pause_while_typing:
-            typing = keyboard.Listener(on_press=self._on_key)
-            typing.start()
-            self._listeners.append(typing)
+
+        # One keyboard listener for both the hotkey and typing detection, started
+        # only after it is ready: macOS aborts the process when two threads query
+        # the keyboard layout at the same time, which pynput listeners do on start.
+        hotkey = keyboard.HotKey(keyboard.HotKey.parse(self.settings.hotkey), self.toggle_pause)
+
+        def on_press(key) -> None:
+            if self.settings.pause_while_typing:
+                self.last_key = time.monotonic()
+            hotkey.press(listener.canonical(key))
+
+        def on_release(key) -> None:
+            hotkey.release(listener.canonical(key))
+
+        listener = keyboard.Listener(on_press=on_press, on_release=on_release)
+        listener.start()
+        listener.wait()
+        self._listeners.append(listener)
 
     def stop(self) -> None:
         self.stopped.set()
@@ -91,9 +102,6 @@ class GlanceApp:
             self.paused.set()
             self.engine.reset()
             self.log("Glance paused")
-
-    def _on_key(self, key) -> None:
-        self.last_key = time.monotonic()
 
     # -- main loop -----------------------------------------------------------------
 

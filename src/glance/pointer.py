@@ -39,6 +39,7 @@ class Pointer:
 
     def start(self) -> None:
         self._listener.start()
+        self._listener.wait()  # finish startup before other listeners begin theirs
 
     def stop(self) -> None:
         self._listener.stop()
