@@ -40,8 +40,11 @@ class FakeTracker:
 
 def make_app(pos=(500, 400)):
     model = GazeModel.fit(
-        [[0.0], [0.5], [10.0], [10.5]], [0, 0, 1, 1], [m.key for m in MONITORS],
-        layout_key(MONITORS), k=1,
+        [[0.0], [0.5], [10.0], [10.5]],
+        [0, 0, 1, 1],
+        [m.key for m in MONITORS],
+        layout_key(MONITORS),
+        k=1,
     )
     settings = Settings(smoothing=1.0, dwell_ms=200, cooldown_ms=0, manual_grace_ms=500)
     pointer, tracker = FakePointer(pos), FakeTracker()

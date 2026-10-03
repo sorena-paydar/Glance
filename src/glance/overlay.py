@@ -13,7 +13,9 @@ from glance.displays import Monitor
 
 
 class Overlay:
-    def show(self, monitor: Monitor, rel_x: float, rel_y: float, text: str, progress: float) -> None:
+    def show(
+        self, monitor: Monitor, rel_x: float, rel_y: float, text: str, progress: float
+    ) -> None:
         """Draw a target at a relative position (0..1) on the monitor.
 
         ``progress`` (0..1) shrinks the target as sampling of that point completes.
@@ -138,7 +140,9 @@ def _target_view_class():
                 }
                 label = AppKit.NSAttributedString.alloc().initWithString_attributes_(text, attrs)
                 size = label.size()
-                label.drawAtPoint_(((w - size.width) / 2, h * 0.5 - 60 if rel_y < 0.5 else h * 0.5 + 40))
+                label.drawAtPoint_(
+                    ((w - size.width) / 2, h * 0.5 - 60 if rel_y < 0.5 else h * 0.5 + 40)
+                )
 
     _VIEW_CLASS = GlanceTargetView
     return _VIEW_CLASS
@@ -174,7 +178,9 @@ class _OpenCVOverlay(Overlay):
             font = cv2.FONT_HERSHEY_SIMPLEX
             (tw, _), _ = cv2.getTextSize(text, font, 0.9, 2)
             ty = h // 2 - 60 if rel_y > 0.5 else h // 2 + 60
-            cv2.putText(canvas, text, ((w - tw) // 2, ty), font, 0.9, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(
+                canvas, text, ((w - tw) // 2, ty), font, 0.9, (255, 255, 255), 2, cv2.LINE_AA
+            )
         cv2.imshow(self.WINDOW, canvas)
 
     def pump(self, seconds=0.0):

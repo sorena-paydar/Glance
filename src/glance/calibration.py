@@ -85,12 +85,12 @@ def leave_one_point_out_accuracy(
         if len(set(train_labels.tolist())) < len(monitor_keys):
             continue  # can't train without every monitor
         model = GazeModel.fit(x[~held], train_labels, monitor_keys, "", groups=g[~held])
-        for feature, label in zip(x[held], y[held]):
+        for feature, label in zip(x[held], y[held], strict=True):
             probs = model.predict_proba(feature)
             total[label] += 1
             if probs is not None and int(probs.argmax()) == label:
                 correct[label] += 1
-    return [float(c / t) if t else float("nan") for c, t in zip(correct, total)]
+    return [float(c / t) if t else float("nan") for c, t in zip(correct, total, strict=True)]
 
 
 def _show_for(overlay: Overlay, monitor: Monitor, seconds: float, text: str) -> None:
@@ -126,6 +126,4 @@ def _collect_point(
         if len(samples) >= MIN_SAMPLES_PER_POINT:
             return samples
         text = "Face not detected - face the camera and look at the dot"
-    raise CalibrationError(
-        "could not see your face; check lighting and that the camera faces you"
-    )
+    raise CalibrationError("could not see your face; check lighting and that the camera faces you")

@@ -81,10 +81,13 @@ class SwitchEngine:
             return None
 
         assert s.smoothed is not None
-        if cursor_monitor is not None and cursor_monitor < len(s.smoothed):
-            if s.smoothed[gazed] - s.smoothed[cursor_monitor] < cfg.switch_margin:
-                s.candidate = None
-                return None
+        if (
+            cursor_monitor is not None
+            and cursor_monitor < len(s.smoothed)
+            and s.smoothed[gazed] - s.smoothed[cursor_monitor] < cfg.switch_margin
+        ):
+            s.candidate = None
+            return None
 
         if now < s.cooldown_until:
             return None
@@ -106,4 +109,5 @@ class SwitchEngine:
         if s.smoothed is None or len(s.smoothed) != len(probabilities):
             s.smoothed = list(probabilities)
             return
-        s.smoothed = [alpha * p + (1 - alpha) * q for p, q in zip(probabilities, s.smoothed)]
+        pairs = zip(probabilities, s.smoothed, strict=True)
+        s.smoothed = [alpha * p + (1 - alpha) * q for p, q in pairs]
