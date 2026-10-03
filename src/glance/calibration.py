@@ -13,11 +13,22 @@ from glance.displays import Monitor, layout_key
 from glance.gaze import GazeTracker
 from glance.overlay import Overlay
 
-# Relative target positions on every monitor: centre first, then the corners.
-POINTS = ((0.5, 0.5), (0.15, 0.15), (0.85, 0.15), (0.85, 0.85), (0.15, 0.85))
+# Relative target positions on every monitor: a 3x3 grid, centre first, then
+# around the edge so the eyes never have to cross the whole screen.
+POINTS = (
+    (0.5, 0.5),
+    (0.1, 0.1),
+    (0.5, 0.1),
+    (0.9, 0.1),
+    (0.9, 0.5),
+    (0.9, 0.9),
+    (0.5, 0.9),
+    (0.1, 0.9),
+    (0.1, 0.5),
+)
 INTRO_SECONDS = 3.0
-SETTLE_SECONDS = 0.9  # time for the eyes to land on a new target
-SAMPLE_SECONDS = 1.3
+SETTLE_SECONDS = 0.8  # time for the eyes to land on a new target
+SAMPLE_SECONDS = 1.0
 MIN_SAMPLES_PER_POINT = 8
 ATTEMPTS_PER_POINT = 3
 
@@ -32,6 +43,8 @@ class CalibrationReport:
     samples_per_monitor: list[int]
     # Accuracy when each target is predicted by a model trained without it.
     accuracy_per_monitor: list[float]
+    # Expected distance between where you look and where the cursor lands, in points.
+    point_error_per_monitor: list[float]
 
 
 def run_calibration(
@@ -53,20 +66,32 @@ def run_calibration(
     features: list[np.ndarray] = []
     labels: list[int] = []
     groups: list[int] = []
+    targets: list[tuple[float, float]] = []
+    group = 0
     for mi, monitor in enumerate(monitors):
         log(f"Calibrating {monitor.label()}...")
         for rel in POINTS:
             samples = _collect_point(tracker, overlay, monitor, rel)
             features += samples
             labels += [mi] * len(samples)
-            groups += [len(set(groups))] * len(samples)
+            groups += [group] * len(samples)
+            targets += [rel] * len(samples)
+            group += 1
     overlay.close()
 
     keys = [m.key for m in monitors]
-    model = GazeModel.fit(features, labels, keys, layout_key(monitors), groups=groups)
+    model = GazeModel.fit(
+        features,
+        labels,
+        keys,
+        layout_key(monitors),
+        groups=groups,
+        targets=targets,
+        monitor_sizes=[(m.width, m.height) for m in monitors],
+    )
     accuracy = leave_one_point_out_accuracy(features, labels, groups, keys)
     counts = np.bincount(labels, minlength=len(monitors)).tolist()
-    return CalibrationReport(model, counts, accuracy)
+    return CalibrationReport(model, counts, accuracy, model.point_error or [])
 
 
 def leave_one_point_out_accuracy(

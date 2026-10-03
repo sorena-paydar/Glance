@@ -170,6 +170,13 @@ def _wait_for_face(tracker, timeout: float = 15.0) -> bool:
     return False
 
 
+def print_report(monitors: list[Monitor], report) -> None:
+    print("\n  Monitor                                          recognised   cursor lands within")
+    rows = zip(monitors, report.accuracy_per_monitor, report.point_error_per_monitor, strict=True)
+    for m, accuracy, error in rows:
+        print(f"    {m.label():46s} {accuracy:8.0%}   ~{error:.0f} pt of your gaze")
+
+
 def _calibrate(tracker, monitors: list[Monitor]) -> bool:
     from glance.calibration import CalibrationError, run_calibration
     from glance.overlay import create_overlay
@@ -177,7 +184,7 @@ def _calibrate(tracker, monitors: list[Monitor]) -> bool:
     print("  A red dot will appear on each monitor in turn. Look at it until it moves.")
     print("  Sit as you normally do; turning your head towards each monitor is fine.")
     while True:
-        _ask("  Press Enter to start (takes about 10 seconds per monitor)...")
+        _ask("  Press Enter to start (takes about 16 seconds per monitor)...")
         try:
             report = run_calibration(tracker, monitors, create_overlay(), log=lambda _: None)
         except CalibrationError as exc:
@@ -186,10 +193,7 @@ def _calibrate(tracker, monitors: list[Monitor]) -> bool:
                 return False
             continue
 
-        print("\n  How well Glance can tell your monitors apart:")
-        rows = zip(monitors, report.accuracy_per_monitor, strict=True)
-        for m, accuracy in rows:
-            print(f"    {m.label():48s} {accuracy:5.0%}")
+        print_report(monitors, report)
         if min(report.accuracy_per_monitor) >= GOOD_ACCURACY:
             report.model.save(calibration_path())
             return True

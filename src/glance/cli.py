@@ -125,10 +125,10 @@ def cmd_calibrate(args, settings: Settings) -> int:
         tracker.stop()
 
     report.model.save(calibration_path())
+    from glance.setup import print_report
+
     print("\nCalibration saved. Estimated accuracy:")
-    rows = zip(monitors, report.accuracy_per_monitor, report.samples_per_monitor, strict=True)
-    for m, acc, count in rows:
-        print(f"  {m.label():50s} {acc:6.0%}  ({count} samples)")
+    print_report(monitors, report)
     if min(report.accuracy_per_monitor) < 0.8:
         print(
             "\nSome monitors are hard to tell apart. Turning your head slightly towards "
