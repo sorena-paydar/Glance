@@ -18,8 +18,9 @@ def main(argv: list[str] | None = None) -> int:
         prog="glance", description="Move your cursor to the monitor you are looking at."
     )
     parser.add_argument("--version", action="version", version=f"glance {__version__}")
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="command")
 
+    sub.add_parser("setup", help="guided setup: permissions, camera and calibration")
     sub.add_parser("monitors", help="list detected monitors")
     calibrate = sub.add_parser("calibrate", help="calibrate gaze for your monitors")
     calibrate.add_argument("--camera", type=int, help="camera index (default from settings)")
@@ -32,11 +33,16 @@ def main(argv: list[str] | None = None) -> int:
     config.add_argument("--reset", action="store_true", help="restore default settings")
 
     args = parser.parse_args(argv)
+    if args.command is None:  # plain `glance`: set up the first time, then just run
+        args.command = "start"
+        args.tray = True
     settings = Settings.load()
     if getattr(args, "camera", None) is not None:
         settings.camera_index = args.camera
 
     commands = {
+        "start": cmd_start,
+        "setup": cmd_setup,
         "monitors": cmd_monitors,
         "calibrate": cmd_calibrate,
         "run": cmd_run,
@@ -47,6 +53,29 @@ def main(argv: list[str] | None = None) -> int:
         return commands[args.command](args, settings)
     except KeyboardInterrupt:
         return 130
+
+
+def cmd_start(args, settings: Settings) -> int:
+    from glance.classifier import GazeModel
+    from glance.displays import layout_key
+
+    needs_setup = not calibration_path().exists()
+    if not needs_setup:
+        try:
+            needs_setup = GazeModel.load(calibration_path()).layout != layout_key(get_monitors())
+        except (ValueError, KeyError):
+            needs_setup = True
+        if needs_setup:
+            print("Your monitors changed since the last calibration; let's recalibrate.")
+    if needs_setup and cmd_setup(args, settings) != 0:
+        return 1
+    return cmd_run(args, settings)
+
+
+def cmd_setup(args, settings: Settings) -> int:
+    from glance.setup import run_setup
+
+    return 0 if run_setup(settings) else 1
 
 
 def cmd_monitors(args, settings: Settings) -> int:
@@ -112,7 +141,11 @@ def cmd_calibrate(args, settings: Settings) -> int:
 def cmd_run(args, settings: Settings) -> int:
     from glance.app import GlanceApp, LayoutChangedError
     from glance.gaze import CameraError
-    from glance.permissions import MACOS_PERMISSION_HELP, accessibility_trusted
+    from glance.permissions import (
+        MACOS_PERMISSION_HELP,
+        accessibility_trusted,
+        input_monitoring_granted,
+    )
 
     model = _load_model()
     if model is None:
@@ -120,6 +153,9 @@ def cmd_run(args, settings: Settings) -> int:
     if accessibility_trusted() is False:
         print(MACOS_PERMISSION_HELP, file=sys.stderr)
         return _fail("Accessibility permission is required to move the cursor")
+    if input_monitoring_granted() is False:
+        print(MACOS_PERMISSION_HELP, file=sys.stderr)
+        return _fail("Input Monitoring is required so manual input always wins over gaze")
 
     try:
         app = GlanceApp(settings, model, get_monitors())
@@ -129,9 +165,10 @@ def cmd_run(args, settings: Settings) -> int:
 
     print(f"Glance is running. Pause/resume: {settings.hotkey}. Quit: Ctrl+C.")
     try:
-        if args.tray:
+        if args.tray and _tray_available():
             from glance.tray import run_with_tray
 
+            print("Glance is in your menu bar / system tray.")
             run_with_tray(app)
         else:
             app.run()
@@ -192,6 +229,15 @@ def _describe(sample, model, monitors) -> list[str]:
         marker = ">" if i == int(probs.argmax()) else " "
         lines.append(f"{marker} {m.name or f'Monitor {i}'}: {p:.0%}")
     return lines
+
+
+def _tray_available() -> bool:
+    try:
+        import PIL  # noqa: F401
+        import pystray  # noqa: F401
+    except ImportError:
+        return False
+    return True
 
 
 def _wait_for_face(tracker, timeout: float = 8.0) -> bool:
