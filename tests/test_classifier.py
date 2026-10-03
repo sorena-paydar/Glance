@@ -73,3 +73,52 @@ def test_gaze_between_targets_still_counts():
     assert probs is not None and probs.argmax() == 1
     # Far outside every monitor region.
     assert model.predict_proba([0.0, 80.0]) is None
+
+
+def test_predicts_gaze_point_within_monitor():
+    rng = np.random.default_rng(3)
+    grid = [(x, y) for y in (0.1, 0.5, 0.9) for x in (0.1, 0.5, 0.9)]
+    features, labels, groups, targets = [], [], [], []
+    for label, offset in enumerate((-40.0, 40.0)):
+        for gi, (tx, ty) in enumerate(grid):
+            # Yaw tracks x, pitch tracks y; a third feature is pure noise.
+            for _ in range(20):
+                features.append(
+                    [
+                        offset + 30 * tx + rng.normal(0, 0.5),
+                        20 * ty + rng.normal(0, 0.5),
+                        rng.normal(0, 1),
+                    ]
+                )
+                labels.append(label)
+                groups.append(label * 100 + gi)
+                targets.append((tx, ty))
+    model = GazeModel.fit(
+        features,
+        labels,
+        ["a", "b"],
+        layout="",
+        groups=groups,
+        targets=targets,
+        monitor_sizes=[(1000, 800), (1000, 800)],
+    )
+    x, y = model.predict_point([40 + 30 * 0.3, 20 * 0.7, 0.0], monitor=1)
+    assert abs(x - 0.3) < 0.05 and abs(y - 0.7) < 0.05
+    assert all(error < 60 for error in model.point_error)  # points, on a 1000x800 screen
+
+
+def test_point_model_survives_save_and_load(tmp_path):
+    rng = np.random.default_rng(4)
+    grid = [(0.1, 0.1), (0.9, 0.1), (0.5, 0.9)]
+    features, labels, groups, targets = [], [], [], []
+    for gi, (tx, ty) in enumerate(grid):
+        for _ in range(10):
+            features.append([tx * 10 + rng.normal(0, 0.1), ty * 10 + rng.normal(0, 0.1)])
+            labels.append(0)
+            groups.append(gi)
+            targets.append((tx, ty))
+    model = GazeModel.fit(features, labels, ["a"], "", groups=groups, targets=targets)
+    path = tmp_path / "c.json"
+    model.save(path)
+    loaded = GazeModel.load(path)
+    assert loaded.predict_point([5, 5], 0) == pytest.approx(model.predict_point([5, 5], 0))
