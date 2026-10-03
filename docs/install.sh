@@ -28,13 +28,17 @@ uv tool install --force --python 3.12 "$SOURCE"
 uv tool update-shell >/dev/null 2>&1 || true
 
 BIN="$(uv tool dir --bin)"
+NEW_PATH=""
 case ":$PATH:" in
   *":$BIN:"*) ;;
-  *) PATH="$BIN:$PATH"; export PATH ;;
+  *) PATH="$BIN:$PATH"; export PATH; NEW_PATH=1 ;;
 esac
 
 glance desktop || say "(Could not add Glance to the desktop; run 'glance desktop' later.)"
 say "==> Glance installed. Open it from your Desktop, or run 'glance'."
+if [ -n "$NEW_PATH" ]; then
+  say "    (Open a new terminal window to use the 'glance' command.)"
+fi
 
 if [ -n "${GLANCE_NO_SETUP:-}" ]; then
   exit 0
